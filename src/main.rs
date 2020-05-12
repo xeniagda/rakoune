@@ -1,4 +1,5 @@
 mod render;
+mod gpu_primitives;
 
 use std::io::{Result as IOResult, Error, ErrorKind};
 use futures::executor::block_on;

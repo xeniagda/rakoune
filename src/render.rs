@@ -11,6 +11,7 @@ use wgpu::{
     RenderPipeline,
     ProgrammableStageDescriptor,
     BlendDescriptor,
+    BufferUsage,
 };
 
 use winit::{
@@ -19,6 +20,7 @@ use winit::{
 };
 
 use crate::into_ioerror;
+use crate::gpu_primitives::Vertex;
 
 pub struct RenderState {
     surface: Surface,
@@ -29,10 +31,17 @@ pub struct RenderState {
     swap_chain: SwapChain,
 
     render_pipeline: RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
 }
 
 const VERTEX_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-vert.spv");
 const FRAGMENT_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-frag.spv");
+
+const VERTICIES: &[Vertex] = &[
+    Vertex { position: [0.,    0.5], color: [0., 0., 1.] },
+    Vertex { position: [-0.5, -0.5], color: [0., 1., 0.] },
+    Vertex { position: [0.5,  -0.5], color: [1., 0., 0.] },
+];
 
 impl RenderState {
     pub async fn new(window: &Window) -> IOResult<RenderState> {
@@ -105,7 +114,9 @@ impl RenderState {
                 ],
                 vertex_state: wgpu::VertexStateDescriptor {
                     index_format: wgpu::IndexFormat::Uint32,
-                    vertex_buffers: &[],
+                    vertex_buffers: &[
+                        Vertex::desc(),
+                    ],
                 },
                 depth_stencil_state: None,
                 sample_count: 1,
@@ -114,8 +125,13 @@ impl RenderState {
             },
         );
 
+        let vertex_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(VERTICIES),
+            wgpu::BufferUsage::VERTEX,
+        );
+
         Ok(Self {
-            surface, adapter, device, queue, sc_desc, swap_chain, render_pipeline,
+            surface, adapter, device, queue, sc_desc, swap_chain, render_pipeline, vertex_buffer,
         })
     }
 
@@ -152,6 +168,7 @@ impl RenderState {
         );
 
         render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 5 * 8 * 3);
         render_pass.draw(0..3, 0..1);
 
         std::mem::drop(render_pass);
