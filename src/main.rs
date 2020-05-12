@@ -1,8 +1,14 @@
+#![feature(async_closure)]
+
 mod render;
 mod gpu_primitives;
+mod state;
 
 use std::io::{Result as IOResult, Error, ErrorKind};
-use futures::executor::block_on;
+use futures::{
+    executor::block_on,
+    future::select,
+};
 use winit::{
     event_loop::{EventLoop, ControlFlow},
     window::{WindowBuilder, Window},
@@ -11,6 +17,7 @@ use winit::{
 };
 
 use render::RenderState;
+use state::State;
 
 pub fn into_ioerror<T: ToString>(x: T) -> Error {
     Error::new(
@@ -29,6 +36,8 @@ fn main() -> IOResult<()> {
 
     let mut render_state = block_on(RenderState::new(&window))?;
 
+    let mut state = State::new();
+
     el.run(move |event, _, cf| {
         match event {
             Event::WindowEvent {
@@ -42,7 +51,8 @@ fn main() -> IOResult<()> {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
-                render_state.render().expect("Render failed");
+                state.step(1. / 60.); // Assume 60 FPS
+                block_on(render_state.render(&state)).expect("Render error");
             }
             _ => {}
         }

@@ -21,6 +21,7 @@ use winit::{
 
 use crate::into_ioerror;
 use crate::gpu_primitives::Vertex;
+use crate::state::State;
 
 pub struct RenderState {
     surface: Surface,
@@ -36,12 +37,6 @@ pub struct RenderState {
 
 const VERTEX_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-vert.spv");
 const FRAGMENT_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-frag.spv");
-
-const VERTICIES: &[Vertex] = &[
-    Vertex { position: [0.,    0.5], color: [0., 0., 1.] },
-    Vertex { position: [-0.5, -0.5], color: [0., 1., 0.] },
-    Vertex { position: [0.5,  -0.5], color: [1., 0., 0.] },
-];
 
 impl RenderState {
     pub async fn new(window: &Window) -> IOResult<RenderState> {
@@ -126,8 +121,8 @@ impl RenderState {
         );
 
         let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(VERTICIES),
-            wgpu::BufferUsage::VERTEX,
+            &[0; 1024],
+            BufferUsage::VERTEX | BufferUsage::COPY_DST,
         );
 
         Ok(Self {
@@ -143,14 +138,43 @@ impl RenderState {
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
-    pub fn render(&mut self) -> IOResult<()> {
-        let current_texture_view = &self.swap_chain.get_next_texture().map_err(|_| into_ioerror("Timeout"))?.view;
+    pub async fn render(&mut self, state: &State) -> IOResult<()> {
+        // Upload vertex buffer
+        let vertex_buffer_content: &[u8] = bytemuck::cast_slice(&state.verticies);
+
+        // See https://github.com/gfx-rs/wgpu-rs/issues/9#issuecomment-494022784
+        // This is a very cheap action since the backing memory is already allocated
+        let staging_buffer_mapped = self.device.create_buffer_mapped(
+            &wgpu::BufferDescriptor {
+                label: Some("Staging buffer"),
+                size: 1024,
+                usage: BufferUsage::MAP_WRITE | BufferUsage::COPY_SRC | BufferUsage::STORAGE,
+            }
+        );
+        staging_buffer_mapped.data[..vertex_buffer_content.len()].copy_from_slice(vertex_buffer_content);
+        let staging_buffer = staging_buffer_mapped.finish();
+
+        let mut stage_upload_encoder = self.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor {
+                label: Some("Staging upload encoder"),
+            }
+        );
+
+        stage_upload_encoder.copy_buffer_to_buffer(
+            &staging_buffer,
+            0,
+            &self.vertex_buffer,
+            0,
+            1024,
+        );
 
         let mut encoder = self.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
                 label: Some("Render encoder"),
             }
         );
+
+        let current_texture_view = &self.swap_chain.get_next_texture().map_err(|_| into_ioerror("Timeout"))?.view;
 
         let mut render_pass = encoder.begin_render_pass(
             &wgpu::RenderPassDescriptor {
@@ -168,12 +192,12 @@ impl RenderState {
         );
 
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 5 * 8 * 3);
-        render_pass.draw(0..3, 0..1);
+        render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 1024);
+        render_pass.draw(0..6, 0..1);
 
         std::mem::drop(render_pass);
 
-        self.queue.submit(&[encoder.finish()]);
+        self.queue.submit(&[stage_upload_encoder.finish(), encoder.finish()]);
 
         Ok(())
     }
