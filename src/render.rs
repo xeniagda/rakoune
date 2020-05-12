@@ -1,4 +1,4 @@
-use std::io::Result as IOResult;
+use std::io::{Result as IOResult, Cursor};
 
 use wgpu::{
     Surface,
@@ -8,6 +8,9 @@ use wgpu::{
     SwapChainDescriptor,
     SwapChain,
     Color,
+    RenderPipeline,
+    ProgrammableStageDescriptor,
+    BlendDescriptor,
 };
 
 use winit::{
@@ -24,7 +27,12 @@ pub struct RenderState {
     queue: Queue,
     sc_desc: SwapChainDescriptor,
     swap_chain: SwapChain,
+
+    render_pipeline: RenderPipeline,
 }
+
+const VERTEX_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-vert.spv");
+const FRAGMENT_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-frag.spv");
 
 impl RenderState {
     pub async fn new(window: &Window) -> IOResult<RenderState> {
@@ -56,8 +64,58 @@ impl RenderState {
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
+        let vs_data = wgpu::read_spirv(Cursor::new(VERTEX_SHADER)).map_err(into_ioerror)?;
+        let fs_data = wgpu::read_spirv(Cursor::new(FRAGMENT_SHADER)).map_err(into_ioerror)?;
+
+        let vs_module = device.create_shader_module(&vs_data);
+        let fs_module = device.create_shader_module(&fs_data);
+
+        let render_pipeline_layout = device.create_pipeline_layout(
+            &wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: &[],
+            },
+        );
+
+        let render_pipeline = device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                layout: &render_pipeline_layout,
+                vertex_stage: ProgrammableStageDescriptor {
+                    module: &vs_module,
+                    entry_point: "main",
+                },
+                fragment_stage: Some(ProgrammableStageDescriptor {
+                    module: &fs_module,
+                    entry_point: "main",
+                }),
+                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: wgpu::CullMode::Back,
+                    depth_bias: 0,
+                    depth_bias_slope_scale: 0.0,
+                    depth_bias_clamp: 0.0,
+                }),
+                primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+                color_states: &[
+                    wgpu::ColorStateDescriptor {
+                        format: sc_desc.format,
+                        color_blend: BlendDescriptor::REPLACE,
+                        alpha_blend: BlendDescriptor::REPLACE,
+                        write_mask: wgpu::ColorWrite::ALL,
+                    }
+                ],
+                vertex_state: wgpu::VertexStateDescriptor {
+                    index_format: wgpu::IndexFormat::Uint32,
+                    vertex_buffers: &[],
+                },
+                depth_stencil_state: None,
+                sample_count: 1,
+                sample_mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+        );
+
         Ok(Self {
-            surface, adapter, device, queue, sc_desc, swap_chain,
+            surface, adapter, device, queue, sc_desc, swap_chain, render_pipeline,
         })
     }
 
@@ -78,7 +136,7 @@ impl RenderState {
             }
         );
 
-        let render_pass = encoder.begin_render_pass(
+        let mut render_pass = encoder.begin_render_pass(
             &wgpu::RenderPassDescriptor {
                 color_attachments: &[
                     wgpu::RenderPassColorAttachmentDescriptor {
@@ -92,6 +150,9 @@ impl RenderState {
                 depth_stencil_attachment: None,
             }
         );
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.draw(0..3, 0..1);
 
         std::mem::drop(render_pass);
 
