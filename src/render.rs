@@ -12,6 +12,15 @@ use wgpu::{
     ProgrammableStageDescriptor,
     BlendDescriptor,
     BufferUsage,
+    Buffer,
+    BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry,
+    BindGroupDescriptor,
+    ShaderStage,
+    BindingType,
+    BlendFactor,
+    BlendOperation,
+    Binding, BindingResource,
 };
 
 use winit::{
@@ -32,11 +41,18 @@ pub struct RenderState {
     swap_chain: SwapChain,
 
     render_pipeline: RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
+    vertex_buffer: Buffer,
+
+    logo_render_pipeline: RenderPipeline,
+    screen_size_buffer: Buffer,
+    screen_size_bindgroup: wgpu::BindGroup,
 }
 
 const VERTEX_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-vert.spv");
 const FRAGMENT_SHADER: &[u8] = include_bytes!("../compiled-shaders/shader-frag.spv");
+
+const LOGO_VERTEX_SHADER: &[u8] = include_bytes!("../compiled-shaders/logo-vert.spv");
+const LOGO_FRAGMENT_SHADER: &[u8] = include_bytes!("../compiled-shaders/logo-frag.spv");
 
 impl RenderState {
     pub async fn new(window: &Window) -> IOResult<RenderState> {
@@ -102,8 +118,16 @@ impl RenderState {
                 color_states: &[
                     wgpu::ColorStateDescriptor {
                         format: sc_desc.format,
-                        color_blend: BlendDescriptor::REPLACE,
-                        alpha_blend: BlendDescriptor::REPLACE,
+                        color_blend: BlendDescriptor {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha_blend: BlendDescriptor {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
                         write_mask: wgpu::ColorWrite::ALL,
                     }
                 ],
@@ -125,8 +149,103 @@ impl RenderState {
             BufferUsage::VERTEX | BufferUsage::COPY_DST,
         );
 
+        let logo_vs_data = wgpu::read_spirv(Cursor::new(LOGO_VERTEX_SHADER)).map_err(into_ioerror)?;
+        let logo_fs_data = wgpu::read_spirv(Cursor::new(LOGO_FRAGMENT_SHADER)).map_err(into_ioerror)?;
+
+        let logo_vs_module = device.create_shader_module(&logo_vs_data);
+        let logo_fs_module = device.create_shader_module(&logo_fs_data);
+
+        let screen_size_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&[sc_desc.width, sc_desc.height]),
+            BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+        );
+
+        let bindgroup_layout_desc = BindGroupLayoutDescriptor {
+            label: Some("screen size"),
+            bindings: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStage::VERTEX,
+                    ty: BindingType::UniformBuffer { dynamic: false },
+                }
+            ],
+        };
+
+        let screen_size_bindgroup_layout = device.create_bind_group_layout(&bindgroup_layout_desc);
+
+        let bindgroup_desc = BindGroupDescriptor {
+            label: Some("screen size bindgroup"),
+            layout: &screen_size_bindgroup_layout,
+            bindings: &[
+                Binding {
+                    binding: 0,
+                    resource: BindingResource::Buffer {
+                        buffer: &screen_size_buffer,
+                        range: 0..(2 * std::mem::size_of::<u32>()) as u64,
+                    },
+                }
+            ],
+        };
+
+        let screen_size_bindgroup = device.create_bind_group(&bindgroup_desc);
+
+        let logo_render_pipeline_layout = device.create_pipeline_layout(
+            &wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &screen_size_bindgroup_layout,
+                ],
+            },
+        );
+
+        let logo_render_pipeline = device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                layout: &logo_render_pipeline_layout,
+                vertex_stage: ProgrammableStageDescriptor {
+                    module: &logo_vs_module,
+                    entry_point: "main",
+                },
+                fragment_stage: Some(ProgrammableStageDescriptor {
+                    module: &logo_fs_module,
+                    entry_point: "main",
+                }),
+                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: wgpu::CullMode::Back,
+                    depth_bias: 0,
+                    depth_bias_slope_scale: 0.0,
+                    depth_bias_clamp: 0.0,
+                }),
+                primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+                color_states: &[
+                    wgpu::ColorStateDescriptor {
+                        format: sc_desc.format,
+                        color_blend: BlendDescriptor {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha_blend: BlendDescriptor {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                        write_mask: wgpu::ColorWrite::ALL,
+                    }
+                ],
+                vertex_state: wgpu::VertexStateDescriptor {
+                    index_format: wgpu::IndexFormat::Uint32,
+                    vertex_buffers: &[
+                    ],
+                },
+                depth_stencil_state: None,
+                sample_count: 1,
+                sample_mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+        );
+
         Ok(Self {
-            surface, adapter, device, queue, sc_desc, swap_chain, render_pipeline, vertex_buffer,
+            surface, adapter, device, queue, sc_desc, swap_chain, render_pipeline, vertex_buffer, logo_render_pipeline, screen_size_buffer, screen_size_bindgroup,
         })
     }
 
@@ -136,6 +255,34 @@ impl RenderState {
         self.sc_desc.height = into_size.height;
 
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+
+        let staging_screen_size_mapped = self.device.create_buffer_mapped(
+            &wgpu::BufferDescriptor {
+                label: Some("Staging screen size buffer"),
+                size: (2 * std::mem::size_of::<u32>()) as u64,
+                usage: BufferUsage::MAP_WRITE | BufferUsage::COPY_SRC | BufferUsage::STORAGE,
+            }
+        );
+        staging_screen_size_mapped.data.copy_from_slice(
+            bytemuck::cast_slice(&[self.sc_desc.width, self.sc_desc.height]),
+        );
+        let staging_screen_size_buffer = staging_screen_size_mapped.finish();
+
+        let mut stage_upload_encoder = self.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor {
+                label: Some("Staging upload encoder"),
+            }
+        );
+
+        stage_upload_encoder.copy_buffer_to_buffer(
+            &staging_screen_size_buffer,
+            0,
+            &self.screen_size_buffer,
+            0,
+            (2 * std::mem::size_of::<u32>()) as u64,
+        );
+
+        self.queue.submit(&[stage_upload_encoder.finish()]);
     }
 
     pub async fn render(&mut self, state: &State) -> IOResult<()> {
@@ -196,6 +343,27 @@ impl RenderState {
         render_pass.draw(0..6, 0..1);
 
         std::mem::drop(render_pass);
+
+        let mut logo_render_pass = encoder.begin_render_pass(
+            &wgpu::RenderPassDescriptor {
+                color_attachments: &[
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: current_texture_view,
+                        resolve_target: None,
+                        load_op: wgpu::LoadOp::Load,
+                        store_op: wgpu::StoreOp::Store,
+                        clear_color: Color::RED,
+                    }
+                ],
+                depth_stencil_attachment: None,
+            }
+        );
+
+        logo_render_pass.set_pipeline(&self.logo_render_pipeline);
+        logo_render_pass.set_bind_group(0, &self.screen_size_bindgroup, &[]);
+        logo_render_pass.draw(0..6, 0..1);
+
+        std::mem::drop(logo_render_pass);
 
         self.queue.submit(&[stage_upload_encoder.finish(), encoder.finish()]);
 
