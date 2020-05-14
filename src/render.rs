@@ -435,7 +435,7 @@ impl RenderState {
                         resolve_target: None,
                         load_op: wgpu::LoadOp::Clear,
                         store_op: wgpu::StoreOp::Store,
-                        clear_color: Color::BLUE,
+                        clear_color: Color::BLACK,
                     }
                 ],
                 depth_stencil_attachment: None,
