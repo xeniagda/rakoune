@@ -85,7 +85,7 @@ impl TextRenderer {
             &wgpu::BufferDescriptor {
                 label: Some("Glyph vertex buffer"),
                 size: 1024, // For now
-                usage: BufferUsage::COPY_DST | BufferUsage::VERTEX,
+                usage: BufferUsage::COPY_DST | BufferUsage::VERTEX | BufferUsage::MAP_WRITE,
             },
         );
 
@@ -205,14 +205,73 @@ impl TextRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, backend: &mut RenderBackend, to_view: &wgpu::TextureView, state: &State) -> IOResult<wgpu::CommandBuffer> {
+    pub async fn write_data(&mut self, backend: &mut RenderBackend, state: &State) -> IOResult<()> {
+        // Bogus vertex data
+        let verticies = vec![
+            Vertex { position: [ 0., 0., ], fontdata_uv: [ 0., 0., ] },
+            Vertex { position: [ -1., 1., ], fontdata_uv: [ 1., 1., ] },
+            Vertex { position: [ -1., 0., ], fontdata_uv: [ 1., 0., ] },
+        ];
+
+        let raw_data: &[u8] = bytemuck::cast_slice(&verticies);
+
+        let mut mapped_write_fut = self.glyph_vertex_buffer.map_write(0, raw_data.len() as u64);
+        backend.device.poll(wgpu::Maintain::Wait);
+        let mut mapped_write = mapped_write_fut.await.map_err(|_| into_ioerror("sync error"))?;
+
+        mapped_write.as_slice().copy_from_slice(raw_data);
+
+        self.glyph_vertex_buffer.unmap();
+        backend.device.poll(wgpu::Maintain::Poll);
+
+        // Bogus texture stuff
+        let staging_buffer_mapped = backend.device.create_buffer_mapped(
+            &wgpu::BufferDescriptor {
+                label: Some("bogus texture data"),
+                size: 512 * 512 * 4,
+                usage: BufferUsage::COPY_SRC,
+            },
+        );
+        for i in 0..512*512*4 {
+            staging_buffer_mapped.data[i] = (255 * ((i / 4) % 2)) as u8;
+        }
+        let buf = staging_buffer_mapped.finish();
+
+        let mut encoder = backend.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor {
+                label: Some("Texture upload encoder"),
+            }
+        );
+        encoder.copy_buffer_to_texture(
+            wgpu::BufferCopyView {
+                buffer: &buf,
+                offset: 0,
+                bytes_per_row: 512 * 4,
+                rows_per_image: 512,
+            },
+            wgpu::TextureCopyView {
+                texture: &self.glyph_canvas,
+                mip_level: 0,
+                array_layer: 0,
+                origin: Default::default(),
+            },
+            wgpu::Extent3d { width: 512, height: 512, depth: 1 },
+        );
+        backend.queue.submit(&[encoder.finish()]);
+
+        Ok(())
+    }
+
+    pub async fn render(&mut self, backend: &mut RenderBackend, to_view: &wgpu::TextureView, state: &State) -> IOResult<wgpu::CommandBuffer> {
+        self.write_data(backend, state).await?;
+
         let mut encoder = backend.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
                 label: Some("Text render encoder"),
             }
         );
 
-        let mut logo_render_pass = encoder.begin_render_pass(
+        let mut render_pass = encoder.begin_render_pass(
             &wgpu::RenderPassDescriptor {
                 color_attachments: &[
                     wgpu::RenderPassColorAttachmentDescriptor {
@@ -227,12 +286,12 @@ impl TextRenderer {
             }
         );
 
-        logo_render_pass.set_pipeline(&self.render_pipeline);
-        logo_render_pass.set_bind_group(0, &self.bind_group, &[]);
-        logo_render_pass.set_vertex_buffer(0, &self.glyph_vertex_buffer, 0, 1024);
-        logo_render_pass.draw(0..6, 0..1);
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_vertex_buffer(0, &self.glyph_vertex_buffer, 0, 0);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.draw(0..3, 0..1);
 
-        std::mem::drop(logo_render_pass);
+        std::mem::drop(render_pass);
 
         Ok(encoder.finish())
     }

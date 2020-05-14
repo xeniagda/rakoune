@@ -149,10 +149,10 @@ impl RenderState {
 
         let clear_screen = encoder.finish();
 
-        let logo_render = self.logo_renderer.render(&mut self.backend, &current_texture_view, state)?;
-        let text_render = self.text_renderer.render(&mut self.backend, &current_texture_view, state)?;
+        let logo_render = self.logo_renderer.render(&mut self.backend, &current_texture_view, state).await?;
+        let text_render = self.text_renderer.render(&mut self.backend, &current_texture_view, state).await?;
 
-        self.backend.queue.submit(&[clear_screen, logo_render]);
+        self.backend.queue.submit(&[clear_screen, logo_render, text_render]);
 
         Ok(())
     }

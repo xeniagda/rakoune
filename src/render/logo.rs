@@ -271,7 +271,7 @@ impl LogoRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, backend: &mut RenderBackend, to_view: &wgpu::TextureView, _state: &State) -> IOResult<wgpu::CommandBuffer> {
+    pub async fn render(&mut self, backend: &mut RenderBackend, to_view: &wgpu::TextureView, _state: &State) -> IOResult<wgpu::CommandBuffer> {
         let mut encoder = backend.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
                 label: Some("Render encoder"),
