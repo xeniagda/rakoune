@@ -136,7 +136,7 @@ impl RenderState {
 
         let clear_screen = encoder.finish();
 
-        let logo_render = self.logo_renderer.render(&mut self.backend, &current_texture_view)?;
+        let logo_render = self.logo_renderer.render(&mut self.backend, &current_texture_view, state)?;
 
         self.backend.queue.submit(&[clear_screen, logo_render]);
 

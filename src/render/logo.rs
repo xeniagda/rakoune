@@ -25,6 +25,7 @@ use image::GenericImageView;
 
 use super::RenderBackend;
 use crate::into_ioerror;
+use crate::state::State;
 
 const LOGO_VERTEX_SHADER: &[u8] = include_bytes!("../../compiled-shaders/logo-vert.spv");
 const LOGO_FRAGMENT_SHADER: &[u8] = include_bytes!("../../compiled-shaders/logo-frag.spv");
@@ -35,6 +36,7 @@ pub(super) struct LogoRenderer {
     logo_render_pipeline: RenderPipeline,
     screen_size_buffer: Buffer,
     logo_bindgroup: wgpu::BindGroup,
+    logo_texture: wgpu::Texture,
 }
 
 impl LogoRenderer {
@@ -236,6 +238,7 @@ impl LogoRenderer {
             logo_render_pipeline,
             screen_size_buffer,
             logo_bindgroup,
+            logo_texture,
         })
     }
 
@@ -271,7 +274,7 @@ impl LogoRenderer {
         Ok(())
     }
 
-    pub fn render(&mut self, backend: &mut RenderBackend, to_view: &wgpu::TextureView) -> IOResult<wgpu::CommandBuffer> {
+    pub fn render(&mut self, backend: &mut RenderBackend, to_view: &wgpu::TextureView, _state: &State) -> IOResult<wgpu::CommandBuffer> {
         let mut encoder = backend.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
                 label: Some("Render encoder"),
