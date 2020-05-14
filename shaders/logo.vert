@@ -8,16 +8,16 @@ const float LOGO_SIZE = 200.0;
 
 const vec2 uvs[6] = vec2[6](
     vec2(0., 0.),
-    vec2(1., 0.),
-    vec2(0., 1.),
     vec2(0., 1.),
     vec2(1., 0.),
+    vec2(1., 0.),
+    vec2(0., 1.),
     vec2(1., 1.)
 );
 
 void main() {
-    float one_h_pixel = 0.5 / screen_width;
-    float one_v_pixel = 0.5 / screen_height;
+    float one_h_pixel = 2. / screen_width;
+    float one_v_pixel = 2. / screen_height;
 
     vec2 point = vec2(0., 0.);
 
