@@ -1,4 +1,4 @@
-use std::io::{Result as IOResult, Cursor};
+use std::io::Result as IOResult;
 
 use wgpu::{
     Color,
@@ -117,11 +117,8 @@ impl LogoRenderer {
             },
         );
 
-        let logo_vs_data = wgpu::read_spirv(Cursor::new(LOGO_VERTEX_SHADER)).map_err(into_ioerror)?;
-        let logo_fs_data = wgpu::read_spirv(Cursor::new(LOGO_FRAGMENT_SHADER)).map_err(into_ioerror)?;
-
-        let logo_vs_module = backend.device.create_shader_module(&logo_vs_data);
-        let logo_fs_module = backend.device.create_shader_module(&logo_fs_data);
+        let logo_vs_module = backend.load_shader_mod(LOGO_VERTEX_SHADER)?;
+        let logo_fs_module = backend.load_shader_mod(LOGO_FRAGMENT_SHADER)?;
 
         let screen_size_buffer = backend.device.create_buffer_with_data(
             bytemuck::cast_slice(&[backend.sc_desc.width, backend.sc_desc.height]),

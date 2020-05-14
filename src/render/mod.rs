@@ -1,4 +1,4 @@
-use std::io::{Result as IOResult};
+use std::io::{Result as IOResult, Cursor};
 
 use wgpu::{
     Surface,
@@ -73,6 +73,12 @@ impl RenderBackend {
             sc_desc,
             swap_chain,
         })
+    }
+
+    fn load_shader_mod(&mut self, shader_data: &[u8]) -> IOResult<wgpu::ShaderModule> {
+        let parsed_data = wgpu::read_spirv(Cursor::new(shader_data)).map_err(into_ioerror)?;
+
+        Ok(self.device.create_shader_module(&parsed_data))
     }
 
     fn recreate_swapchain(&mut self, into_size: PhysicalSize<u32>) -> IOResult<()> {
