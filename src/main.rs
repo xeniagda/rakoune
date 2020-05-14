@@ -1,16 +1,13 @@
 #![feature(async_closure)]
 
 mod render;
-mod gpu_primitives;
 mod state;
 
 use std::io::{Result as IOResult, Error, ErrorKind};
 use std::time::{Instant, Duration};
 
-use futures::{
-    executor::block_on,
-    future::select,
-};
+use futures::executor::block_on;
+
 use winit::{
     event_loop::{EventLoop, ControlFlow},
     window::{WindowBuilder, Window},
@@ -93,7 +90,7 @@ fn main() -> IOResult<()> {
     });
 }
 
-async fn handle_window_event(w_event: WindowEvent<'_>, window: &mut Window, cf: &mut ControlFlow, render_state: &mut RenderState) {
+async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf: &mut ControlFlow, render_state: &mut RenderState) {
     match w_event {
         WindowEvent::CloseRequested => {
             *cf = ControlFlow::Exit;
@@ -103,7 +100,7 @@ async fn handle_window_event(w_event: WindowEvent<'_>, window: &mut Window, cf: 
             new_inner_size: &mut phys_size,
             ..
         } => {
-            render_state.resize(phys_size);
+            render_state.resize(phys_size).expect("Window resize failed");
         }
         WindowEvent::KeyboardInput {
             input: KeyboardInput {
