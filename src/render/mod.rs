@@ -22,6 +22,9 @@ use crate::state::State;
 mod logo;
 use logo::LogoRenderer;
 
+mod text;
+use text::TextRenderer;
+
 struct RenderBackend {
     surface: Surface,
     adapter: Adapter,
@@ -87,6 +90,7 @@ impl RenderBackend {
 pub struct RenderState {
     backend: RenderBackend,
     logo_renderer: LogoRenderer,
+    text_renderer: TextRenderer,
 }
 
 impl RenderState {
@@ -94,10 +98,12 @@ impl RenderState {
         let mut backend = RenderBackend::new(window).await?;
 
         let logo_renderer = LogoRenderer::new(&mut backend).await?;
+        let text_renderer = TextRenderer::new(&mut backend).await?;
 
         Ok(Self {
             backend,
             logo_renderer,
+            text_renderer,
         })
     }
 
@@ -105,6 +111,7 @@ impl RenderState {
         self.backend.recreate_swapchain(into_size)?;
 
         self.logo_renderer.resize(&mut self.backend, into_size)?;
+        self.text_renderer.resize(&mut self.backend, into_size)?;
 
         Ok(())
     }
@@ -137,6 +144,7 @@ impl RenderState {
         let clear_screen = encoder.finish();
 
         let logo_render = self.logo_renderer.render(&mut self.backend, &current_texture_view, state)?;
+        let text_render = self.text_renderer.render(&mut self.backend, &current_texture_view, state)?;
 
         self.backend.queue.submit(&[clear_screen, logo_render]);
 
