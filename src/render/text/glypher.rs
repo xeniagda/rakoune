@@ -91,6 +91,8 @@ impl Glypher {
                 current_xy_position[0] + gl_pos.x_offset as f32 * h2u,
                 current_xy_position[1] + gl_pos.y_offset as f32 * h2u,
             ];
+            current_xy_position[0] += gl_pos.x_advance as f32 * h2u;
+            current_xy_position[1] += gl_pos.y_advance as f32 * h2u;
 
             let ext = if let Some(ext) = self.hb_font.get_glyph_extents(gl_info.codepoint) {
                 ext
@@ -99,8 +101,6 @@ impl Glypher {
                 continue;
             };
 
-            let u_width = ext.width as f32 * h2u;
-            let u_height = ext.height as f32 * h2u;
 
             eprintln!("Rendering {:?} @ ({:.3}, {:.3})", self.hb_font.get_glyph_name(gl_info.codepoint), render_pos[0], render_pos[1]);
 
@@ -114,26 +114,30 @@ impl Glypher {
                 continue;
             };
 
-            current_xy_position[0] += gl_pos.x_advance as f32 * h2u;
-            current_xy_position[1] += gl_pos.y_advance as f32 * h2u;
-
-            let current_u_frac = current_u as f32 / extent.width as f32;
-            let current_v_frac = current_v as f32 / extent.height as f32;
+            let current_u_frac = bounds.min.x as f32 / extent.width as f32;
+            let current_v_frac = bounds.min.y as f32 / extent.height as f32;
             let u_width_frac = bounds.width() as f32 / extent.width as f32;
             let v_height_frac = bounds.height() as f32 / extent.height as f32;
 
+            let x_bearing = ext.x_bearing as f32 * h2u;
+            let y_bearing = ext.y_bearing as f32 * h2u;
+            let ext_width = ext.width as f32 * h2u;
+            let ext_height = ext.height as f32 * h2u;
+
             verticies.extend(
                 &Vertex::create_quad(
-                    render_pos,
-                    [render_pos[0] + u_width, render_pos[1] + u_height],
+                    [render_pos[0] + x_bearing, render_pos[1] + y_bearing],
+                    [render_pos[0] + x_bearing + ext_width, render_pos[1] + y_bearing + ext_height],
                     [current_u_frac, current_v_frac],
                     [current_u_frac + u_width_frac, current_v_frac + v_height_frac],
                 ),
             );
 
+            println!("{:?} / {:?}", (current_u, current_v), (bounds.min.x, bounds.max.y));
+
             glyph.draw(|rx, ry, v| {
-                let x = rx + current_u as u32;
-                let y = ry + current_v as u32;
+                let x = rx + bounds.min.x as u32;
+                let y = ry + bounds.min.y as u32;
 
                 let i = 4 * (x + y * extent.width) as usize;
                 canvas_buf_mapped.data[i] = 255;
