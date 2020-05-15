@@ -216,7 +216,17 @@ impl TextRenderer {
     }
 
     pub async fn write_data(&mut self, backend: &mut RenderBackend, state: &State) -> IOResult<()> {
-        self.n_verticies = self.glypher.upload(backend, state, &mut self.glyph_vertex_buffer, (&mut self.glyph_canvas, self.canvas_size)).await?;
+        if let Some(n) = self
+            .glypher
+            .upload(
+                backend,
+                state,
+                &mut self.glyph_vertex_buffer,
+                (&mut self.glyph_canvas, self.canvas_size)
+            )
+            .await? {
+            self.n_verticies = n;
+        }
         Ok(())
     }
 

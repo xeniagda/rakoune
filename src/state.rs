@@ -1,11 +1,11 @@
 pub struct State {
-    content: String,
+    pub content: String,
 }
 
 impl State {
     pub fn new() -> State {
         State {
-            content: "ni li pona tawa mi a".to_string(),
+            content: ">>= hask".to_string(),
         }
     }
 
