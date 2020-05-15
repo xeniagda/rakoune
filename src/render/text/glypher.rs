@@ -24,7 +24,7 @@ use super::text_gpu_primitives::Vertex;
 
 const FONT_SIZE_PX: f32 = 40.0; // For UV-rendering
 const FONT_SIZE_UNIT: f32 = 1. / 12.; // For vertex positions
-const FONT_DATA: &[u8] = include_bytes!("../../../resources/firacode-regular.ttf");
+const FONT_DATA: &[u8] = include_bytes!("../../../resources/linja-pona-4.1.otf");
 
 pub struct Glypher {
     hb_font: Owned<HBFont<'static>>,
