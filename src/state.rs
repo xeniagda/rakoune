@@ -5,7 +5,7 @@ pub struct State {
 impl State {
     pub fn new() -> State {
         State {
-            content: ">>= hask".to_string(),
+            content: "www >>= hask".to_string(),
         }
     }
 
