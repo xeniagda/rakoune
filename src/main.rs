@@ -70,7 +70,7 @@ fn main() -> IOResult<()> {
             Event::WindowEvent {
                 event: w_event, ..
             } => {
-                block_on(handle_window_event(w_event, &mut window, cf, &mut render_state));
+                block_on(handle_window_event(w_event, &mut window, cf, &mut render_state, &mut state));
             }
             Event::MainEventsCleared => {
                 // RedrawRequested will only trigger once, unless we manually
@@ -90,7 +90,7 @@ fn main() -> IOResult<()> {
     });
 }
 
-async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf: &mut ControlFlow, render_state: &mut RenderState) {
+async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf: &mut ControlFlow, render_state: &mut RenderState, state: &mut State) {
     match w_event {
         WindowEvent::CloseRequested => {
             *cf = ControlFlow::Exit;
@@ -104,16 +104,28 @@ async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf:
         }
         WindowEvent::KeyboardInput {
             input: KeyboardInput {
-                virtual_keycode: Some(kc),
+                virtual_keycode: Some(VirtualKeyCode::Escape),
                 state: ElementState::Pressed,
                 ..
             },
             ..
         } => {
-            if kc == VirtualKeyCode::Escape {
-                *cf = ControlFlow::Exit;
-            } else {
-                eprintln!("Pressed {:?}", kc);
+            *cf = ControlFlow::Exit;
+        }
+        WindowEvent::KeyboardInput {
+            input: KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::Back),
+                state: ElementState::Pressed,
+                ..
+            },
+            ..
+        } => {
+            state.content.pop();
+        }
+        WindowEvent::ReceivedCharacter(ch) => {
+            println!("Received {:?}", ch);
+            if !ch.is_control() {
+                state.content.push(ch);
             }
         }
         _ => {}
