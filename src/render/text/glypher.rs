@@ -156,8 +156,8 @@ impl Glypher {
             wgpu::BufferCopyView {
                 buffer: &canvas_buf,
                 offset: 0,
-                bytes_per_row: 512 * 4,
-                rows_per_image: 512,
+                bytes_per_row: extent.width * 4,
+                rows_per_image: extent.height,
             },
             wgpu::TextureCopyView {
                 texture: &glyph_canvas,
@@ -165,7 +165,7 @@ impl Glypher {
                 array_layer: 0,
                 origin: Default::default(),
             },
-            wgpu::Extent3d { width: 512, height: 512, depth: 1 },
+            extent,
         );
 
         // Upload vertex data

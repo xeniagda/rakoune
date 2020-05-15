@@ -54,8 +54,8 @@ pub(super) struct TextRenderer {
 impl TextRenderer {
     pub async fn new(backend: &mut RenderBackend) -> IOResult<Self> {
         let canvas_size = Extent3d {
-            width: 512,
-            height: 512,
+            width: 1024,
+            height: 1024,
             depth: 1,
         };
         let glyph_canvas = backend.device.create_texture(
