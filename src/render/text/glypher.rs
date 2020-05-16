@@ -82,8 +82,8 @@ impl Glypher {
             .add_str(&state.content);
 
         let mut current_xy_position: [f32; 2] = [0., 0., ];
-        let mut current_u: usize = 100;
-        let mut current_v: usize = 100;
+        let mut current_u: usize = 0;
+        let mut current_v: usize = 0;
 
         let glyph_buffer = harfbuzz_rs::shape(&self.hb_font, uni_buf, &[]);
         for (&gl_info, &gl_pos) in glyph_buffer.get_glyph_infos().iter().zip(glyph_buffer.get_glyph_positions().iter()) {
@@ -180,7 +180,7 @@ impl Glypher {
         if raw_data.len() != 0 {
             let mut mapped_write_fut = glyph_vertex_buffer.map_write(0, raw_data.len() as u64);
             backend.device.poll(wgpu::Maintain::Wait);
-            let mut mapped_write = mapped_write_fut.await.map_err(|_| into_ioerror("sync error"))?;
+            let mut mapped_write = mapped_write_fut.await.map_err(|_| into_ioerror("Write sync error"))?;
 
             mapped_write.as_slice().copy_from_slice(raw_data);
 

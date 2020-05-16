@@ -82,7 +82,7 @@ impl TextRenderer {
         let glyph_vertex_buffer = backend.device.create_buffer(
             &wgpu::BufferDescriptor {
                 label: Some("Glyph vertex buffer"),
-                size: 1024, // For now
+                size: 4096, // For now
                 usage: BufferUsage::COPY_DST | BufferUsage::VERTEX | BufferUsage::MAP_WRITE,
             },
         );
