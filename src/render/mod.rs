@@ -57,6 +57,13 @@ impl RichTexture {
     }
 }
 
+impl std::ops::Deref for RichTexture {
+    type Target = Texture;
+    fn deref(&self) -> &Texture {
+        &self.content
+    }
+}
+
 struct RenderBackend {
     surface: Surface,
     adapter: Adapter,
