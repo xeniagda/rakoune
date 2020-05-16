@@ -10,6 +10,7 @@ use wgpu::{
     Color,
     Texture, TextureUsage, TextureFormat,
     Extent3d,
+    BufferUsage,
 };
 
 use winit::{
@@ -30,11 +31,20 @@ struct RichTexture {
     content: Texture,
     format: TextureFormat,
     extent: Extent3d,
+    label: Option<String>,
 }
 
 impl RichTexture {
     fn new(backend: &mut RenderBackend, format: TextureFormat, extent: Extent3d, label: Option<&str>) -> IOResult<Self> {
-        Self::new_with_usage(backend, format, extent, label, TextureUsage::COPY_DST | TextureUsage::SAMPLED)
+        Self::new_with_usage(
+            backend,
+            format,
+            extent,
+            label,
+            // COPY_SRC because we want to copy data out of the texture for debugging.
+            // TODO: Remove this in release builds
+            TextureUsage::COPY_DST | TextureUsage::COPY_SRC | TextureUsage::SAMPLED
+        )
     }
 
     fn new_with_usage(backend: &mut RenderBackend, format: TextureFormat, extent: Extent3d, label: Option<&str>, usage: TextureUsage) -> IOResult<Self> {
@@ -53,6 +63,7 @@ impl RichTexture {
 
         Ok(Self {
             content, format, extent,
+            label: label.map(str::to_string),
         })
     }
 }
@@ -191,6 +202,82 @@ impl RenderState {
         let text_render = self.text_renderer.render(&mut self.backend, &current_texture_view, state).await?;
 
         self.backend.queue.submit(&[clear_screen, logo_render, text_render]);
+
+        Ok(())
+    }
+
+    pub async fn dump_debug(&self) -> IOResult<()> {
+        let mut textures = Vec::new();
+        textures.extend(self.logo_renderer.collect_textures());
+        textures.extend(self.text_renderer.collect_textures());
+
+        let mut debug_path = std::path::PathBuf::new();
+        debug_path.push("/");
+        debug_path.push("tmp");
+        debug_path.push("rakoune-debug");
+
+        eprintln!("Dumping to {:?}", debug_path);
+
+        if !debug_path.is_dir() {
+            std::fs::create_dir(debug_path.clone())?;
+        }
+
+        for (i, texture) in textures.into_iter().enumerate() {
+            let mut texture_path = debug_path.clone();
+            texture_path.push(format!("{}-{}.png", i, texture.label.as_ref().unwrap_or(&"UNKNOWN".to_string())));
+
+            eprintln!("Dumping {:?} to {:?}", texture.label, texture_path);
+
+            let buf_out = self.backend.device.create_buffer(
+                &wgpu::BufferDescriptor {
+                    label: Some("Debug destination buffer"),
+                    size: (texture.extent.width * texture.extent.height * 4) as u64,
+                    usage: BufferUsage::COPY_DST | BufferUsage::MAP_READ
+                }
+            );
+            let mut encoder = self.backend.device.create_command_encoder(
+                &wgpu::CommandEncoderDescriptor {
+                    label: Some("Render encoder"),
+                }
+            );
+
+            encoder.copy_texture_to_buffer(
+                wgpu::TextureCopyView {
+                    texture: &texture.content,
+                    mip_level: 0,
+                    array_layer: 0,
+                    origin: Default::default(),
+                },
+                wgpu::BufferCopyView {
+                    buffer: &buf_out,
+                    offset: 0,
+                    bytes_per_row: texture.extent.width * 4,
+                    rows_per_image: texture.extent.height,
+                },
+                texture.extent,
+            );
+
+            self.backend.queue.submit(&[encoder.finish()]);
+
+            let reader_fut = buf_out.map_read(0, (texture.extent.width * texture.extent.height * 4) as u64);
+            self.backend.device.poll(wgpu::Maintain::Wait);
+            let reader = reader_fut.await.map_err(|_| into_ioerror("Buffer sync error"))?;
+
+            let data = reader.as_slice();
+
+            let mut out = std::fs::File::create(texture_path)?;
+
+            let img = image::png::PNGEncoder::new(out);
+
+            img.encode(
+                data,
+                texture.extent.width,
+                texture.extent.height,
+                image::ColorType::Rgba8,
+            ).map_err(into_ioerror)?;
+
+            buf_out.unmap();
+        }
 
         Ok(())
     }

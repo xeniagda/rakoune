@@ -255,5 +255,11 @@ impl TextRenderer {
 
         Ok(encoder.finish())
     }
+
+    pub fn collect_textures<'a>(&'a self) -> Vec<&'a RichTexture> {
+        vec![
+            &self.glyph_canvas,
+        ]
+    }
 }
 

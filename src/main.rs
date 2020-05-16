@@ -116,6 +116,16 @@ async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf:
         }
         WindowEvent::KeyboardInput {
             input: KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::Tab),
+                state: ElementState::Pressed,
+                ..
+            },
+            ..
+        } => {
+            render_state.dump_debug().await.expect("Debug dump failed");
+        }
+        WindowEvent::KeyboardInput {
+            input: KeyboardInput {
                 virtual_keycode: Some(VirtualKeyCode::Back),
                 state: ElementState::Pressed,
                 ..

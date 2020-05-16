@@ -293,4 +293,10 @@ impl LogoRenderer {
 
         Ok(encoder.finish())
     }
+
+    pub fn collect_textures<'a>(&'a self) -> Vec<&'a RichTexture> {
+        vec![
+            &self.logo_texture,
+        ]
+    }
 }
