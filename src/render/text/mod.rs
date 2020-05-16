@@ -204,7 +204,7 @@ impl TextRenderer {
     }
 
     pub fn resize(&mut self, backend: &mut RenderBackend, into_size: PhysicalSize<u32>) -> IOResult<()> {
-        Ok(())
+        self.glypher.resize(backend, into_size)
     }
 
     pub async fn write_data(&mut self, backend: &mut RenderBackend, state: &State) -> IOResult<()> {

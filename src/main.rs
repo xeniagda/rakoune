@@ -34,6 +34,8 @@ fn main() -> IOResult<()> {
         .map_err(into_ioerror)?;
 
     let mut render_state = block_on(RenderState::new(&window))?;
+    render_state.resize(window.inner_size()).expect("Window resize failed");
+
 
     let mut state = State::new();
 

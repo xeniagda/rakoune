@@ -23,13 +23,13 @@ use super::super::{RenderBackend, RichTexture};
 use super::text_gpu_primitives::Vertex;
 
 const FONT_SIZE_PX: f32 = 40.0; // For UV-rendering
-const FONT_SIZE_UNIT: f32 = 1. / 12.; // For vertex positions
 const FONT_DATA: &[u8] = include_bytes!("../../../resources/linja-pona-4.1.otf");
 
 pub struct Glypher {
     hb_font: Owned<HBFont<'static>>,
     rt_font: RTFont<'static>, // TODO: Change this to support dynamic fonts
     text_rendered_cache: String,
+    window_size: (f32, f32),
 }
 
 impl Glypher {
@@ -43,7 +43,15 @@ impl Glypher {
             hb_font,
             rt_font,
             text_rendered_cache: "".to_string(),
+            window_size: (1., 1.),
         })
+    }
+
+    pub(super) fn resize(&mut self, backend: &mut RenderBackend, into_size: winit::dpi::PhysicalSize<u32>) -> IOResult<()> {
+        self.text_rendered_cache = "".to_string();
+        self.window_size = (into_size.width as f32, into_size.height as f32);
+
+        Ok(())
     }
 
     pub(super) async fn upload(
@@ -75,7 +83,8 @@ impl Glypher {
         let mut verticies: Vec<Vertex> = Vec::new();
 
         let h2px = FONT_SIZE_PX / self.hb_font.scale().1 as f32;
-        let h2u = FONT_SIZE_UNIT / self.hb_font.scale().1 as f32;
+        let h2u_x = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.0);
+        let h2u_y = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.1);
 
         let uni_buf =
             harfbuzz_rs::UnicodeBuffer::new()
@@ -88,11 +97,11 @@ impl Glypher {
         let glyph_buffer = harfbuzz_rs::shape(&self.hb_font, uni_buf, &[]);
         for (&gl_info, &gl_pos) in glyph_buffer.get_glyph_infos().iter().zip(glyph_buffer.get_glyph_positions().iter()) {
             let render_pos = [
-                current_xy_position[0] + gl_pos.x_offset as f32 * h2u,
-                current_xy_position[1] + gl_pos.y_offset as f32 * h2u,
+                current_xy_position[0] + gl_pos.x_offset as f32 * h2u_x,
+                current_xy_position[1] + gl_pos.y_offset as f32 * h2u_y,
             ];
-            current_xy_position[0] += gl_pos.x_advance as f32 * h2u;
-            current_xy_position[1] += gl_pos.y_advance as f32 * h2u;
+            current_xy_position[0] += gl_pos.x_advance as f32 * h2u_x;
+            current_xy_position[1] += gl_pos.y_advance as f32 * h2u_y;
 
             let ext = if let Some(ext) = self.hb_font.get_glyph_extents(gl_info.codepoint) {
                 ext
@@ -124,10 +133,10 @@ impl Glypher {
                 break;
             }
 
-            let x_bearing = ext.x_bearing as f32 * h2u;
-            let y_bearing = ext.y_bearing as f32 * h2u;
-            let ext_width = ext.width as f32 * h2u;
-            let ext_height = ext.height as f32 * h2u;
+            let x_bearing = ext.x_bearing as f32 * h2u_x;
+            let y_bearing = ext.y_bearing as f32 * h2u_y;
+            let ext_width = ext.width as f32 * h2u_x;
+            let ext_height = ext.height as f32 * h2u_y;
 
             verticies.extend(
                 &Vertex::create_quad(
