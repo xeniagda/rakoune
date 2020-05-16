@@ -23,7 +23,7 @@ use winit::dpi::PhysicalSize;
 
 use image::GenericImageView;
 
-use super::RenderBackend;
+use super::{RenderBackend, RichTexture};
 use crate::into_ioerror;
 use crate::state::State;
 
@@ -36,7 +36,7 @@ pub(super) struct LogoRenderer {
     logo_render_pipeline: RenderPipeline,
     screen_size_buffer: Buffer,
     logo_bindgroup: wgpu::BindGroup,
-    logo_texture: wgpu::Texture,
+    logo_texture: RichTexture,
 }
 
 impl LogoRenderer {
@@ -52,24 +52,16 @@ impl LogoRenderer {
 
         debug_assert_eq!(image_data.len(), (logo_width * logo_height * 4) as usize);
 
-        let logo_texture_size = wgpu::Extent3d {
-            width: logo_width,
-            height: logo_height,
-            depth: 1,
-        };
-
-        let logo_texture = backend.device.create_texture(
-            &wgpu::TextureDescriptor {
-                label: Some("Logo image"),
-                size: logo_texture_size,
-                array_layer_count: 1,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: TextureFormat::Rgba8UnormSrgb,
-                usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED,
+        let logo_texture = RichTexture::new(
+            backend,
+            TextureFormat::Rgba8UnormSrgb,
+            wgpu::Extent3d {
+                width: logo_width,
+                height: logo_height,
+                depth: 1,
             },
-        );
+            Some("Logo"),
+        )?;
 
         // Copy logo data into logo texture
         let logo_buffer = backend.device.create_buffer_with_data(
@@ -96,12 +88,12 @@ impl LogoRenderer {
                 array_layer: 0,
                 origin: Default::default(),
             },
-            logo_texture_size,
+            logo_texture.extent,
         );
 
         backend.queue.submit(&[logo_upload_encoder.finish()]);
 
-        let logo_texture_view = logo_texture.create_default_view();
+        let logo_texture_view = logo_texture.content.create_default_view();
 
         let logo_sampler = backend.device.create_sampler(
             &wgpu::SamplerDescriptor {
