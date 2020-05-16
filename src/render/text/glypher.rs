@@ -114,10 +114,15 @@ impl Glypher {
                 continue;
             };
 
-            let current_u_frac = bounds.min.x as f32 / glyph_canvas.extent.width as f32;
-            let current_v_frac = bounds.min.y as f32 / glyph_canvas.extent.height as f32;
+            let current_u_frac = current_u as f32 / glyph_canvas.extent.width as f32;
+            let current_v_frac = current_v as f32 / glyph_canvas.extent.height as f32;
             let u_width_frac = bounds.width() as f32 / glyph_canvas.extent.width as f32;
             let v_height_frac = bounds.height() as f32 / glyph_canvas.extent.height as f32;
+
+            if current_u_frac + u_width_frac > 1. || current_v_frac + v_height_frac > 1. {
+                eprintln!("Doesn't fit!");
+                break;
+            }
 
             let x_bearing = ext.x_bearing as f32 * h2u;
             let y_bearing = ext.y_bearing as f32 * h2u;
@@ -133,11 +138,11 @@ impl Glypher {
                 ),
             );
 
-            println!("{:?} / {:?}", (current_u, current_v), (bounds.min.x, bounds.max.y));
+            eprintln!("Placing at UV {:?} .. {:?}", bounds.min, bounds.max);
 
             glyph.draw(|rx, ry, v| {
-                let x = rx + bounds.min.x as u32;
-                let y = ry + bounds.min.y as u32;
+                let x = rx + current_u as u32;
+                let y = ry + current_v as u32;
 
                 let i = 4 * (x + y * glyph_canvas.extent.width) as usize;
                 canvas_buf_mapped.data[i] = 255;
@@ -147,6 +152,7 @@ impl Glypher {
             });
 
             current_u = (current_u as isize + bounds.width() as isize) as usize;
+            current_u += 1;
         }
 
         let canvas_buf = canvas_buf_mapped.finish();
