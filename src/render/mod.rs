@@ -8,7 +8,8 @@ use wgpu::{
     SwapChainDescriptor,
     SwapChain,
     Color,
-    TextureUsage, TextureFormat,
+    Texture, TextureUsage, TextureFormat,
+    Extent3d,
 };
 
 use winit::{
@@ -25,6 +26,37 @@ use logo::LogoRenderer;
 mod text;
 use text::TextRenderer;
 
+struct RichTexture {
+    content: Texture,
+    format: TextureFormat,
+    extent: Extent3d,
+}
+
+impl RichTexture {
+    fn new(backend: &mut RenderBackend, format: TextureFormat, extent: Extent3d, label: Option<&str>) -> IOResult<Self> {
+        Self::new_with_usage(backend, format, extent, label, TextureUsage::COPY_DST | TextureUsage::SAMPLED)
+    }
+
+    fn new_with_usage(backend: &mut RenderBackend, format: TextureFormat, extent: Extent3d, label: Option<&str>, usage: TextureUsage) -> IOResult<Self> {
+        let content = backend.device.create_texture(
+            &wgpu::TextureDescriptor {
+                label,
+                size: extent,
+                array_layer_count: 1,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: format,
+                usage,
+            },
+        );
+
+        Ok(Self {
+            content, format, extent,
+        })
+    }
+}
+
 struct RenderBackend {
     surface: Surface,
     adapter: Adapter,
@@ -33,7 +65,6 @@ struct RenderBackend {
     sc_desc: SwapChainDescriptor,
     swap_chain: SwapChain,
 }
-
 
 impl RenderBackend {
     async fn new(window: &Window) -> IOResult<Self> {
