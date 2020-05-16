@@ -125,8 +125,8 @@ async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf:
             state.content.pop();
         }
         WindowEvent::ReceivedCharacter(ch) => {
-            println!("Received {:?}", ch);
             if !ch.is_control() {
+                println!("Received {:?}", ch);
                 state.content.push(ch);
             }
         }
