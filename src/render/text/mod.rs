@@ -26,7 +26,7 @@ use winit::dpi::PhysicalSize;
 
 use image::GenericImageView;
 
-use super::RenderBackend;
+use super::{RenderBackend, RichTexture};
 use crate::into_ioerror;
 use crate::state::State;
 
@@ -43,8 +43,7 @@ pub(super) struct TextRenderer {
     render_pipeline: RenderPipeline,
     bind_group: wgpu::BindGroup,
 
-    glyph_canvas: wgpu::Texture,
-    canvas_size: Extent3d,
+    glyph_canvas: RichTexture,
     glyph_vertex_buffer: wgpu::Buffer,
     n_verticies: u32,
 
@@ -53,23 +52,17 @@ pub(super) struct TextRenderer {
 
 impl TextRenderer {
     pub async fn new(backend: &mut RenderBackend) -> IOResult<Self> {
-        let canvas_size = Extent3d {
-            width: 1024,
-            height: 1024,
-            depth: 1,
-        };
-        let glyph_canvas = backend.device.create_texture(
-            &wgpu::TextureDescriptor {
-                label: Some("Glyph image"),
-                size: canvas_size,
-                array_layer_count: 1,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: TextureFormat::Rgba8UnormSrgb,
-                usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED,
+        let glyph_canvas = RichTexture::new(
+            backend,
+            TextureFormat::Rgba8UnormSrgb,
+            Extent3d {
+                width: 1024,
+                height: 1024,
+                depth: 1,
             },
-        );
+            Some("Glyph canvas"),
+        )?;
+
         let glyph_canvas_view = glyph_canvas.create_default_view();
 
         let sampler = backend.device.create_sampler(
@@ -204,7 +197,6 @@ impl TextRenderer {
             render_pipeline,
             bind_group,
             glyph_canvas,
-            canvas_size,
             glyph_vertex_buffer,
             n_verticies: 0,
             glypher,
@@ -222,7 +214,7 @@ impl TextRenderer {
                 backend,
                 state,
                 &mut self.glyph_vertex_buffer,
-                (&mut self.glyph_canvas, self.canvas_size)
+                &mut self.glyph_canvas,
             )
             .await? {
             self.n_verticies = n;
