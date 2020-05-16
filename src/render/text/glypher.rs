@@ -23,7 +23,7 @@ use super::super::{RenderBackend, RichTexture};
 use super::text_gpu_primitives::Vertex;
 
 const FONT_SIZE_PX: f32 = 40.0; // For UV-rendering
-const FONT_DATA: &[u8] = include_bytes!("../../../resources/linja-pona-4.1.otf");
+const FONT_DATA: &[u8] = include_bytes!("../../../resources/firacode-regular.ttf");
 
 pub struct Glypher {
     hb_font: Owned<HBFont<'static>>,
@@ -82,7 +82,7 @@ impl Glypher {
         // Render text
         let mut verticies: Vec<Vertex> = Vec::new();
 
-        let h2px = FONT_SIZE_PX / self.hb_font.scale().1 as f32;
+        let h2px = 2. * FONT_SIZE_PX / self.hb_font.scale().1 as f32;
         let h2u_x = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.0);
         let h2u_y = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.1);
 
@@ -106,12 +106,9 @@ impl Glypher {
             let ext = if let Some(ext) = self.hb_font.get_glyph_extents(gl_info.codepoint) {
                 ext
             } else {
-                eprintln!("No extents found for g{} = {:?}", gl_info.codepoint, self.hb_font.get_glyph_name(gl_info.codepoint));
                 continue;
             };
 
-
-            eprintln!("Rendering {:?} @ ({:.3}, {:.3})", self.hb_font.get_glyph_name(gl_info.codepoint), render_pos[0], render_pos[1]);
 
             let glyph = self.rt_font.glyph(rusttype::GlyphId(gl_info.codepoint.try_into().map_err(into_ioerror)?));
             let glyph = glyph.scaled(rusttype::Scale::uniform(FONT_SIZE_PX));
@@ -119,7 +116,6 @@ impl Glypher {
             let bounds = if let Some(pbb) = glyph.pixel_bounding_box() {
                 pbb
             } else {
-                eprintln!("No bounding box found for g{} = {:?}", gl_info.codepoint, self.hb_font.get_glyph_name(gl_info.codepoint));
                 continue;
             };
 
@@ -129,7 +125,6 @@ impl Glypher {
             let v_height_frac = bounds.height() as f32 / glyph_canvas.extent.height as f32;
 
             if current_u_frac + u_width_frac > 1. || current_v_frac + v_height_frac > 1. {
-                eprintln!("Doesn't fit!");
                 break;
             }
 
@@ -146,8 +141,6 @@ impl Glypher {
                     [current_u_frac + u_width_frac, current_v_frac + v_height_frac],
                 ),
             );
-
-            eprintln!("Placing at UV {:?} .. {:?}", bounds.min, bounds.max);
 
             glyph.draw(|rx, ry, v| {
                 let x = rx + current_u as u32;
