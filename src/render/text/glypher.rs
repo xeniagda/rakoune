@@ -136,6 +136,16 @@ impl Glypher {
         for glyph in glyphs {
             let gl_pos = glyph.position;
 
+            // Special case for newline
+            // TODO: I'm not 100% sure how fonts handle newlines. For top-to-bottom fonts, should we step right?
+            // Look this up and make a proper solution.
+
+            if glyph.get_content() == "\n" {
+                current_xy_position[0] = 0.;
+                current_xy_position[1] += -self.hb_font.scale().1 as f32 * h2u_y; // negative = down
+                continue;
+            }
+
             let render_pos = [
                 current_xy_position[0] + gl_pos.x_offset as f32 * h2u_x,
                 current_xy_position[1] + gl_pos.y_offset as f32 * h2u_y,
