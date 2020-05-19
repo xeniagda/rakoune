@@ -11,6 +11,7 @@ use wgpu::{
 use harfbuzz_rs::{
     Font as HBFont,
     Owned,
+    GlyphPosition,
 };
 
 use rusttype::{
@@ -24,6 +25,47 @@ use super::text_gpu_primitives::Vertex;
 
 const FONT_SIZE_PX: f32 = 40.0; // For UV-rendering
 const FONT_DATA: &[u8] = include_bytes!("../../../resources/firacode-regular.ttf");
+
+struct Glyph<'a> {
+    from_ref: &'a str,
+    byte_span: std::ops::Range<usize>,
+
+    position: GlyphPosition,
+    glyph_id: u32,
+}
+
+impl <'a> Glyph<'a> {
+    // TODO: Maybe pass a unicode buffer? Kinda cessary though...
+    fn create_glyph_iter(text: &'a str, font: &HBFont) -> Vec<Glyph<'a>> {
+        let unicode_buffer = harfbuzz_rs::UnicodeBuffer::new().add_str(text);
+        let glyph_buffer = harfbuzz_rs::shape(font, unicode_buffer, &[]);
+
+        let infos = glyph_buffer.get_glyph_infos();
+        let mut spans = Vec::with_capacity(infos.len());
+
+        for i in 0..infos.len() {
+            let start = infos[i].cluster as usize;
+            let next = infos.get(i+1).map(|x| x.cluster as usize).unwrap_or(text.len());
+            spans.push(start..next);
+        }
+
+        let positions = glyph_buffer.get_glyph_positions();
+        positions
+            .iter()
+            .enumerate()
+            .map(|(i, &pos)| Glyph {
+                from_ref: text,
+                byte_span: spans[i].clone(),
+                position: pos,
+                glyph_id: infos[i].codepoint,
+            })
+            .collect()
+    }
+
+    fn get_content(&'a self) -> &'a str {
+        &self.from_ref[self.byte_span.clone()]
+    }
+}
 
 pub struct Glypher {
     hb_font: Owned<HBFont<'static>>,
@@ -82,20 +124,18 @@ impl Glypher {
         // Render text
         let mut verticies: Vec<Vertex> = Vec::new();
 
-        let h2px = 2. * FONT_SIZE_PX / self.hb_font.scale().1 as f32;
         let h2u_x = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.0);
         let h2u_y = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.1);
 
-        let uni_buf =
-            harfbuzz_rs::UnicodeBuffer::new()
-            .add_str(&state.content);
+        let glyphs = Glyph::create_glyph_iter(&state.content, &self.hb_font);
 
         let mut current_xy_position: [f32; 2] = [0., 0., ];
         let mut current_u: usize = 0;
         let mut current_v: usize = 0;
 
-        let glyph_buffer = harfbuzz_rs::shape(&self.hb_font, uni_buf, &[]);
-        for (&gl_info, &gl_pos) in glyph_buffer.get_glyph_infos().iter().zip(glyph_buffer.get_glyph_positions().iter()) {
+        for glyph in glyphs {
+            let gl_pos = glyph.position;
+
             let render_pos = [
                 current_xy_position[0] + gl_pos.x_offset as f32 * h2u_x,
                 current_xy_position[1] + gl_pos.y_offset as f32 * h2u_y,
@@ -103,14 +143,14 @@ impl Glypher {
             current_xy_position[0] += gl_pos.x_advance as f32 * h2u_x;
             current_xy_position[1] += gl_pos.y_advance as f32 * h2u_y;
 
-            let ext = if let Some(ext) = self.hb_font.get_glyph_extents(gl_info.codepoint) {
+            let ext = if let Some(ext) = self.hb_font.get_glyph_extents(glyph.glyph_id) {
                 ext
             } else {
                 continue;
             };
 
 
-            let glyph = self.rt_font.glyph(rusttype::GlyphId(gl_info.codepoint.try_into().map_err(into_ioerror)?));
+            let glyph = self.rt_font.glyph(rusttype::GlyphId(glyph.glyph_id.try_into().map_err(into_ioerror)?));
             let glyph = glyph.scaled(rusttype::Scale::uniform(FONT_SIZE_PX));
             let glyph = glyph.positioned(rusttype::Point { x: current_u as f32, y: current_v as f32 });
             let bounds = if let Some(pbb) = glyph.pixel_bounding_box() {
