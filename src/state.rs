@@ -9,13 +9,14 @@ pub struct State {
 pub enum Key {
     Typed(char),
     Backspace,
+    ArrowLeft, ArrowRight,
 }
 
 fn char_index_before(st: &str, ch_idx: usize) -> Option<usize> {
     if ch_idx == 0 {
         return None;
     }
-    for ch_byte_len in 1..ch_idx {
+    for ch_byte_len in 1..=ch_idx {
         if st.get(ch_idx - ch_byte_len .. ch_idx).is_some() {
             return Some(ch_idx - ch_byte_len);
         }
@@ -63,6 +64,16 @@ impl State {
 
                     self.cursor_range.start -= removed.len_utf8();
                     self.cursor_range.end -= removed.len_utf8();
+                }
+            }
+            Key::ArrowRight => {
+                if let Some(char_to_jump_over) = self.content[self.cursor_range.start..].chars().next() {
+                    self.cursor_range.start += char_to_jump_over.len_utf8();
+                }
+            }
+            Key::ArrowLeft => {
+                if let Some(before_idx) = char_index_before(&self.content, self.cursor_range.start) {
+                    self.cursor_range.start = before_idx;
                 }
             }
         }

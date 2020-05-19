@@ -126,6 +126,26 @@ async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf:
         }
         WindowEvent::KeyboardInput {
             input: KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::Left),
+                state: ElementState::Pressed,
+                ..
+            },
+            ..
+        } => {
+            state.received_key(state::Key::ArrowLeft);
+        }
+        WindowEvent::KeyboardInput {
+            input: KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::Right),
+                state: ElementState::Pressed,
+                ..
+            },
+            ..
+        } => {
+            state.received_key(state::Key::ArrowRight);
+        }
+        WindowEvent::KeyboardInput {
+            input: KeyboardInput {
                 virtual_keycode: Some(VirtualKeyCode::Back),
                 state: ElementState::Pressed,
                 ..
