@@ -5,7 +5,7 @@ pub struct State {
 impl State {
     pub fn new() -> State {
         State {
-            content: "ni li ilo pi pana sitelen".to_string(),
+            content: "ni li ilo pi\npana sitelen".to_string(),
         }
     }
 
