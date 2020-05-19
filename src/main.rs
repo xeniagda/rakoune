@@ -132,14 +132,14 @@ async fn handle_window_event(w_event: WindowEvent<'_>, _window: &mut Window, cf:
             },
             ..
         } => {
-            state.content.pop();
+            state.received_key(state::Key::Backspace);
         }
         WindowEvent::ReceivedCharacter(mut ch) => {
             if ch == '\r' {
                 ch = '\n';
             }
             if !ch.is_control() || ch == '\n' {
-                state.content.push(ch);
+                state.received_key(state::Key::Typed(ch));
             }
         }
         _ => {}
