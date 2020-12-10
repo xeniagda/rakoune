@@ -27,6 +27,7 @@ use logo::LogoRenderer;
 mod text;
 use text::TextRenderer;
 
+#[allow(dead_code)]
 struct RichTexture {
     content: Texture,
     format: TextureFormat,
@@ -77,7 +78,6 @@ impl std::ops::Deref for RichTexture {
 
 struct RenderBackend {
     surface: Surface,
-    adapter: Adapter,
     device: Device,
     queue: Queue,
     sc_desc: SwapChainDescriptor,
@@ -116,7 +116,6 @@ impl RenderBackend {
 
         Ok(Self {
             surface,
-            adapter,
             device,
             queue,
             sc_desc,
@@ -165,8 +164,8 @@ impl RenderState {
     pub fn resize(&mut self, into_size: PhysicalSize<u32>) -> IOResult<()> {
         self.backend.recreate_swapchain(into_size)?;
 
-        self.logo_renderer.resize(&mut self.backend, into_size)?;
-        self.text_renderer.resize(&mut self.backend, into_size)?;
+        self.logo_renderer.resize(&mut self.backend)?;
+        self.text_renderer.resize(&mut self.backend)?;
 
         Ok(())
     }
@@ -265,7 +264,7 @@ impl RenderState {
 
             let data = reader.as_slice();
 
-            let mut out = std::fs::File::create(texture_path)?;
+            let out = std::fs::File::create(texture_path)?;
 
             let img = image::png::PNGEncoder::new(out);
 

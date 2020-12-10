@@ -15,11 +15,9 @@ use wgpu::{
     BlendFactor,
     BlendOperation,
     Binding, BindingResource,
-    TextureUsage, TextureFormat,
+    TextureFormat,
     AddressMode, FilterMode,
 };
-
-use winit::dpi::PhysicalSize;
 
 use image::GenericImageView;
 
@@ -231,7 +229,7 @@ impl LogoRenderer {
         })
     }
 
-    pub fn resize(&mut self, backend: &mut RenderBackend, into_size: PhysicalSize<u32>) -> IOResult<()> {
+    pub fn resize(&mut self, backend: &mut RenderBackend) -> IOResult<()> {
         let staging_screen_size_mapped = backend.device.create_buffer_mapped(
             &wgpu::BufferDescriptor {
                 label: Some("Staging screen size buffer"),

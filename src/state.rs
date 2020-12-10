@@ -42,13 +42,7 @@ impl State {
         }
     }
 
-    pub fn step(&mut self, dt: f32) {
-        println!(
-            "{}|{}|{}",
-            &self.content[..self.cursor_range.start],
-            &self.content[self.cursor_range.clone()],
-            &self.content[self.cursor_range.end..]
-        );
+    pub fn step(&mut self, _dt: f32) {
     }
 
     pub fn received_key(&mut self, key: Key) {

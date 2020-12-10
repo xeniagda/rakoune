@@ -3,8 +3,6 @@ use std::convert::TryInto;
 
 use wgpu::{
     Buffer,
-    Texture,
-    Extent3d,
     BufferUsage,
 };
 
@@ -23,7 +21,7 @@ use crate::state::State;
 use super::super::{RenderBackend, RichTexture};
 use super::text_gpu_primitives::Vertex;
 
-const FONT_SIZE_PX: f32 = 40.0; // For UV-rendering
+const FONT_SIZE_PX: f32 = 24.0; // For UV-rendering
 const FONT_DATA: &[u8] = include_bytes!("../../../resources/firacode-regular.ttf");
 
 struct Glyph<'a> {
@@ -89,9 +87,9 @@ impl Glypher {
         })
     }
 
-    pub(super) fn resize(&mut self, backend: &mut RenderBackend, into_size: winit::dpi::PhysicalSize<u32>) -> IOResult<()> {
+    pub(super) fn resize(&mut self, backend: &mut RenderBackend) -> IOResult<()> {
         self.text_rendered_cache = "".to_string();
-        self.window_size = (into_size.width as f32, into_size.height as f32);
+        self.window_size = (backend.sc_desc.width as f32, backend.sc_desc.height as f32);
 
         Ok(())
     }
@@ -230,7 +228,7 @@ impl Glypher {
         let raw_data: &[u8] = bytemuck::cast_slice(&verticies);
 
         if raw_data.len() != 0 {
-            let mut mapped_write_fut = glyph_vertex_buffer.map_write(0, raw_data.len() as u64);
+            let mapped_write_fut = glyph_vertex_buffer.map_write(0, raw_data.len() as u64);
             backend.device.poll(wgpu::Maintain::Wait);
             let mut mapped_write = mapped_write_fut.await.map_err(|_| into_ioerror("Write sync error"))?;
 

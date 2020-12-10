@@ -1,12 +1,8 @@
 use std::io::Result as IOResult;
 
 use wgpu::{
-    Buffer,
-    Texture,
     RenderPipeline,
-    TextureUsage,
     BufferUsage,
-    BindGroup,
     BindGroupLayoutEntry,
     ShaderStage,
     BindingType,
@@ -22,11 +18,8 @@ use wgpu::{
     Extent3d,
 };
 
-use winit::dpi::PhysicalSize;
-
-use image::GenericImageView;
-
 use super::{RenderBackend, RichTexture};
+#[allow(unused)]
 use crate::into_ioerror;
 use crate::state::State;
 
@@ -203,8 +196,8 @@ impl TextRenderer {
         })
     }
 
-    pub fn resize(&mut self, backend: &mut RenderBackend, into_size: PhysicalSize<u32>) -> IOResult<()> {
-        self.glypher.resize(backend, into_size)
+    pub fn resize(&mut self, backend: &mut RenderBackend) -> IOResult<()> {
+        self.glypher.resize(backend)
     }
 
     pub async fn write_data(&mut self, backend: &mut RenderBackend, state: &State) -> IOResult<()> {
