@@ -101,9 +101,9 @@ impl Glypher {
         glyph_vertex_buffer: &mut Buffer, // Let's just assume everything fits :)
         glyph_canvas: &mut RichTexture,
     ) -> IOResult<Option<u32>> {
-        if state.content == self.text_rendered_cache {
-            return Ok(None);
-        }
+        // if state.content == self.text_rendered_cache {
+        //     return Ok(None);
+        // }
 
         let mut encoder = backend.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
@@ -131,14 +131,15 @@ impl Glypher {
         let mut current_u: usize = 0;
         let mut current_v: usize = 0;
 
-        for glyph in glyphs {
-            let gl_pos = glyph.position;
+        for glyph_info in glyphs {
+            let gl_pos = glyph_info.position;
+            let in_selection = state.cursor_range.contains(&glyph_info.byte_span.start);
 
             // Special case for newline
             // TODO: I'm not 100% sure how fonts handle newlines. For top-to-bottom fonts, should we step right?
             // Look this up and make a proper solution.
 
-            if glyph.get_content() == "\n" {
+            if glyph_info.get_content() == "\n" {
                 current_xy_position[0] = 0.;
                 current_xy_position[1] += -self.hb_font.scale().1 as f32 * h2u_y; // negative = down
                 continue;
@@ -151,14 +152,14 @@ impl Glypher {
             current_xy_position[0] += gl_pos.x_advance as f32 * h2u_x;
             current_xy_position[1] += gl_pos.y_advance as f32 * h2u_y;
 
-            let ext = if let Some(ext) = self.hb_font.get_glyph_extents(glyph.glyph_id) {
+            let ext = if let Some(ext) = self.hb_font.get_glyph_extents(glyph_info.glyph_id) {
                 ext
             } else {
                 continue;
             };
 
 
-            let glyph = self.rt_font.glyph(rusttype::GlyphId(glyph.glyph_id.try_into().map_err(into_ioerror)?));
+            let glyph = self.rt_font.glyph(rusttype::GlyphId(glyph_info.glyph_id.try_into().map_err(into_ioerror)?));
             let glyph = glyph.scaled(rusttype::Scale::uniform(FONT_SIZE_PX));
             let glyph = glyph.positioned(rusttype::Point { x: current_u as f32, y: current_v as f32 });
             let bounds = if let Some(pbb) = glyph.pixel_bounding_box() {
@@ -198,6 +199,9 @@ impl Glypher {
                 canvas_buf_mapped.data[i] = 255;
                 canvas_buf_mapped.data[i + 1] = 255;
                 canvas_buf_mapped.data[i + 2] = 255;
+                if in_selection {
+                    canvas_buf_mapped.data[i] = 0;
+                }
                 canvas_buf_mapped.data[i + 3] = (v * 255.) as u8;
             });
 
