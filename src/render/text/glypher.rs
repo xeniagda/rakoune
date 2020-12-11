@@ -21,6 +21,8 @@ use crate::state::State;
 use super::super::{RenderBackend, RichTexture};
 use super::text_gpu_primitives::Vertex;
 
+const GLYPH_MARGIN: usize = 1;
+
 const FONT_SIZE_PX: f32 = 24.0; // For UV-rendering
 const FONT_DATA: &[u8] = include_bytes!("../../../resources/firacode-regular.ttf");
 
@@ -192,8 +194,8 @@ impl Glypher {
                 ),
             );
 
-            let width = bounds.width() as usize + 4; // 4 margin
-            let height = bounds.height() as usize + 4;
+            let width = bounds.width() as usize + GLYPH_MARGIN;
+            let height = bounds.height() as usize + GLYPH_MARGIN;
 
             // Clear the area + margin
             for x in current_u..current_u+width {
