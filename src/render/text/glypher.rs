@@ -122,6 +122,7 @@ impl Glypher {
         // Render text
         let mut verticies: Vec<Vertex> = Vec::new();
 
+        // h = harfbuzz, u = unit position for gpu
         let h2u_x = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.0);
         let h2u_y = FONT_SIZE_PX * 2. / (self.hb_font.scale().1 as f32 * self.window_size.1);
 
@@ -191,6 +192,19 @@ impl Glypher {
                 ),
             );
 
+            let width = bounds.width() as usize + 4; // 4 margin
+            let height = bounds.height() as usize + 4;
+
+            // Clear the area + margin
+            for x in current_u..current_u+width {
+                for y in current_v..current_v+height {
+                    let i = 4 * (x + y * glyph_canvas.extent.width as usize);
+                    for c in 0..4 {
+                        canvas_buf_mapped.data[i + c] = 0;
+                    }
+                }
+            }
+
             glyph.draw(|rx, ry, v| {
                 let x = rx + current_u as u32;
                 let y = ry + current_v as u32;
@@ -205,8 +219,7 @@ impl Glypher {
                 canvas_buf_mapped.data[i + 3] = (v * 255.) as u8;
             });
 
-            current_u = (current_u as isize + bounds.width() as isize) as usize;
-            current_u += 1;
+            current_u += width;
         }
 
         let canvas_buf = canvas_buf_mapped.finish();
