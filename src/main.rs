@@ -37,7 +37,7 @@ fn main() -> IOResult<()> {
     render_state.resize(window.inner_size()).expect("Window resize failed");
 
 
-    let mut state = State::new();
+    let mut state = State::new("ni li ilo pi pana sitelen".to_string());
 
     let mut frame_instants: Vec<Instant> = Vec::new();
     let mut frame_durations: Vec<Duration> = Vec::new();

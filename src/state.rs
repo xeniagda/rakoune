@@ -35,9 +35,9 @@ fn test_char_index_before() {
 }
 
 impl State {
-    pub fn new() -> State {
+    pub fn new(content: String) -> State {
         State {
-            content: "ni li ilo pi pana sitelen".to_string(),
+            content,
             cursor_range: 3..5,
         }
     }
